@@ -1,0 +1,14 @@
+{
+  "name": "my-tree-ccu",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "dev": "node --env-file-if-exists=.env --watch server.mjs",
+    "migrate:sqlite": "node --env-file-if-exists=.env scripts/migrate-sqlite-to-postgres.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}

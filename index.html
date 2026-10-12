@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f7f2">
+  <meta name="description" content="My Tree CCU — трекер посадок, статусов и ухода за деревьями колледжа.">
+  <title>My Tree CCU — трекер посадок и ухода</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f4f7f2;
+      --surface: #ffffff;
+      --ink: #18241e;
+      --muted: #77827a;
+      --line: #e4eae3;
+      --green: #26734b;
+      --green-dark: #174a34;
+      --green-pale: #e8f2e9;
+      --mint: #b9e5ca;
+      --lime: #d4e88d;
+      --amber: #bd8134;
+      --shadow: 0 14px 34px rgba(31, 55, 39, 0.06);
+      --radius: 16px;
+      --space-1: 8px;
+      --space-2: 16px;
+      --space-3: 24px;
+      --space-4: 32px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background-color: var(--page);
+      background-image: radial-gradient(#dfe8dc 0.7px, transparent 0.7px);
+      background-size: 19px 19px;
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button { font: inherit; }
+
+    .shell {
+      width: min(1180px, calc(100% - 48px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      z-index: 10;
+      top: 0;
+      display: flex;
+      min-height: 84px;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      border-bottom: 1px solid rgba(31, 55, 39, 0.1);
+      background: rgba(244, 247, 242, .94);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar-inner { display: flex; width: min(1180px, calc(100% - 48px)); align-items: center; justify-content: space-between; gap: 24px; margin: 0 auto; }
+    .brand-link { color: inherit; text-decoration: none; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border: 1px solid #d9e8d9;
+      border-radius: 13px;
+      background: #fff;
+      font-size: 23px;
+    }
+    .brand-name { margin: 0; font-size: 16px; font-weight: 750; letter-spacing: 0; }
+    .brand-caption { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+
+    .topbar-meta { display: flex; align-items: center; gap: 12px; }
+    .auth-controls { display: flex; align-items: center; gap: 7px; }
+    .auth-button { min-height: 32px; padding: 0 10px; border: 1px solid #d6e2d6; border-radius: 8px; background: #fff; color: #315a40; cursor: pointer; font-size: 10px; font-weight: 650; }
+    .auth-button:hover { border-color: #a9c6ac; background: #f7fbf6; }
+    .auth-button:focus-visible, .dialog-close:focus-visible, .remove-user:focus-visible { outline: 3px solid #a9d4ad; outline-offset: 2px; }
+    .role-pill { padding: 6px 8px; border-radius: 999px; background: #e8f2e9; color: #315a40; font-size: 9px; font-weight: 700; white-space: nowrap; }
+    .site-nav { display: flex; align-items: center; gap: 22px; }
+    .site-nav a { color: #536258; font-size: 12px; font-weight: 600; text-decoration: none; transition: color 160ms ease; }
+    .site-nav a:hover, .site-nav a:focus-visible { color: var(--green); }
+    .site-nav a:focus-visible { outline: 2px solid #8db998; outline-offset: 5px; border-radius: 2px; }
+    .initiative {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: #59675e;
+      font-size: 12px;
+    }
+    .initiative-mark {
+      display: grid;
+      width: 29px;
+      height: 29px;
+      place-items: center;
+      border-radius: 9px;
+      background: #e4eee2;
+      color: var(--green-dark);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .live-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 11px;
+      border: 1px solid #dce8dc;
+      border-radius: 999px;
+      background: rgba(255,255,255,.7);
+      color: #536258;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4f9b62; }
+
+    main { padding: 30px 0 52px; }
+    .workspace-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding: 13px 0 7px; }
+    .workspace-heading h1 { font-size: 29px; }
+    .workspace-heading .intro-copy { max-width: 650px; line-height: 1.6; }
+    .heading-action { flex: 0 0 auto; }
+    .welcome-button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; padding: 0 14px; border: 1px solid var(--green); border-radius: 9px; background: var(--green); color: #fff; font-size: 11px; font-weight: 650; text-decoration: none; }
+    .welcome-button:hover { background: var(--green-dark); }
+    .welcome-button:focus-visible { outline: 3px solid #a9d4ad; outline-offset: 2px; }
+    .section-block { padding-top: 45px; scroll-margin-top: 104px; }
+    .section-block > .section-heading { margin-bottom: 18px; }
+    .section-heading h2 { font-size: 23px; }
+    .section-heading .section-note { font-size: 12px; }
+    .demo-notice { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 8px 11px; border: 1px solid #eadfbd; border-radius: 8px; background: #fbf7e9; color: #776634; font-size: 10px; }
+    .demo-notice span { color: #aa8430; font-size: 13px; }
+    .campus-map-panel { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: #fff; box-shadow: var(--shadow); }
+    #campus-map { width: 100%; height: 440px; background: #e8eee8; }
+    .map-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 16px; border-bottom: 1px solid #edf0ec; }
+    .map-location { color: #4d5c52; font-size: 11px; }
+    .map-location strong { color: var(--ink); font-weight: 700; }
+    .map-legend { display: flex; flex-wrap: wrap; gap: 12px; color: #657168; font-size: 10px; }
+    .map-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .map-legend-dot { width: 9px; height: 9px; flex: 0 0 auto; border: 2px solid #fff; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 1px #75977d; }
+    .map-legend-dot.proposal { background: #c48832; box-shadow: 0 0 0 1px #c48832; }
+    .map-note { margin: 0; padding: 11px 16px; border-top: 1px solid #edf0ec; color: #727e75; font-size: 10px; line-height: 1.6; }
+    .map-note strong { color: #765f30; }
+    .campus-pin { display: grid; width: 34px; height: 34px; place-items: center; border: 3px solid #fff; border-radius: 50% 50% 50% 4px; background: #26734b; box-shadow: 0 2px 8px rgba(19, 48, 30, .34); color: #fff; font-size: 10px; font-weight: 800; transform: rotate(-45deg); }
+    .campus-pin span { transform: rotate(45deg); }
+    .proposal-pin { display: grid; width: 27px; height: 27px; place-items: center; border: 3px solid #fff; border-radius: 50%; background: #c48832; box-shadow: 0 2px 7px rgba(75, 51, 13, .3); color: #fff; font-size: 10px; font-weight: 800; }
+    .map-popup-title { margin: 0 0 5px; color: var(--ink); font-size: 12px; font-weight: 750; }
+    .map-popup-copy { margin: 0; color: #667269; font-size: 10px; line-height: 1.55; }
+    [hidden] { display: none !important; }
+    .auth-dialog { width: min(440px, calc(100% - 30px)); max-height: min(90vh, 720px); overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: #fff; color: var(--ink); box-shadow: 0 25px 80px rgba(24, 36, 30, .22); }
+    .auth-dialog::backdrop { background: rgba(16, 33, 24, .48); backdrop-filter: blur(4px); }
+    .dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
+    .dialog-heading h2 { font-size: 20px; }
+    .dialog-copy { margin: 9px 0 19px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .dialog-close { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #536258; cursor: pointer; font-size: 18px; }
+    .auth-form { display: grid; gap: 13px; }
+    .auth-form .welcome-button { width: 100%; cursor: pointer; }
+    .auth-feedback { min-height: 18px; margin: 12px 0 0; color: #a24d3d; font-size: 11px; line-height: 1.5; }
+    .page-intro {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--space-2);
+      margin-bottom: 24px;
+    }
+    .eyebrow {
+      margin: 0 0 9px;
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.1px;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: 29px; font-weight: 720; letter-spacing: 0; }
+    .intro-copy { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+    .period {
+      color: #738078;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px; }
+    .stat-card {
+      position: relative;
+      min-height: 148px;
+      overflow: hidden;
+      padding: 21px 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      animation: rise-in .55s both;
+    }
+    .stat-card:nth-child(2) { animation-delay: .07s; }
+    .stat-card:nth-child(3) { animation-delay: .14s; }
+    .stat-top { display: flex; align-items: center; justify-content: space-between; }
+    .stat-label { max-width: 220px; color: #657168; font-size: 12px; line-height: 1.5; }
+    .stat-symbol {
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border-radius: 11px;
+      background: var(--green-pale);
+      color: var(--green);
+      font-size: 18px;
+    }
+    .stat-value { margin-top: 13px; font-size: 33px; font-weight: 730; letter-spacing: 0; line-height: 1; }
+    .stat-foot { margin-top: 10px; color: #89938b; font-size: 11px; }
+    .stat-foot strong { color: var(--green); font-weight: 650; }
+
+    .impact {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1.35fr .65fr;
+      gap: 32px;
+      min-height: 254px;
+      overflow: hidden;
+      margin-top: 19px;
+      padding: 30px 34px;
+      border: 1px solid #214f37;
+      border-radius: 19px;
+      background-color: var(--green-dark);
+      background-image: linear-gradient(115deg, rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 32px 32px;
+      color: #fff;
+      box-shadow: 0 18px 38px rgba(23, 74, 52, .16);
+      animation: rise-in .65s .12s both;
+    }
+    .impact-main, .impact-aside { position: relative; z-index: 1; }
+    .impact-kicker { margin: 0 0 11px; color: #b9d8c3; font-size: 11px; font-weight: 650; }
+    .impact-title { margin: 0; font-size: 17px; font-weight: 600; }
+    .co2-line { display: flex; align-items: baseline; gap: 10px; margin-top: 18px; }
+    .co2-value { font-size: 51px; font-weight: 740; letter-spacing: 0; line-height: 1; font-variant-numeric: tabular-nums; }
+    .co2-unit { color: #c0d7c7; font-size: 15px; }
+    .progress-meta { display: flex; justify-content: space-between; gap: 10px; margin: 22px 0 9px; color: #c1d4c6; font-size: 10px; }
+    .progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.16); }
+    .progress-fill {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #a3d9aa, #d4e88d);
+      transition: width 850ms cubic-bezier(.2,.75,.25,1);
+    }
+    .impact-aside {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-left: 29px;
+      border-left: 1px solid rgba(255,255,255,.18);
+    }
+    .aside-label { margin: 0 0 17px; color: #b9d8c3; font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }
+    .impact-fact { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.14); }
+    .impact-fact span { color: #d0ded3; font-size: 11px; }
+    .impact-fact strong { color: #fff; font-size: 16px; font-weight: 650; white-space: nowrap; }
+    .impact-foot { margin: 10px 0 0; color: #a9c6b2; font-size: 10px; }
+
+    .activity-section { margin-top: 0; }
+    .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+    h2 { margin: 0; font-size: 18px; font-weight: 700; }
+    .section-note { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+    .tree-form {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr .9fr .9fr 1.2fr .9fr auto;
+      align-items: end;
+      gap: 11px;
+      margin-bottom: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .form-field { display: grid; gap: 6px; min-width: 0; }
+    .form-field span { color: #657168; font-size: 10px; font-weight: 650; }
+    .form-field input, .form-field select, .form-field textarea {
+      width: 100%;
+      min-height: 38px;
+      padding: 0 10px;
+      border: 1px solid #dce5dc;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 11px;
+    }
+    .form-field textarea { min-height: 38px; padding: 9px 10px; resize: vertical; }
+    .form-field input:focus-visible, .form-field select:focus-visible, .status-select:focus-visible {
+      outline: 3px solid #b8d9bd;
+      outline-offset: 1px;
+    }
+    .add-tree-button {
+      display: inline-flex;
+      min-height: 38px;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 13px;
+      border: 1px solid var(--green);
+      border-radius: 9px;
+      background: var(--green);
+      color: #fff;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .add-tree-button:hover { background: var(--green-dark); }
+    .add-tree-button:focus-visible { outline: 3px solid #a9d4ad; outline-offset: 2px; }
+    .form-feedback { min-height: 17px; margin: 0 2px 10px; color: var(--green); font-size: 10px; }
+    .admin-panel { margin-bottom: 18px; padding: 17px; border: 1px solid #dce8dc; border-radius: 13px; background: #f9fcf8; }
+    .admin-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .admin-heading h3 { margin: 0; font-size: 13px; }
+    .admin-heading p { margin: 0; color: var(--muted); font-size: 10px; }
+    .user-form { grid-template-columns: 1fr 1fr 1fr auto; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+    .user-form .add-tree-button { white-space: nowrap; }
+    .user-feedback { min-height: 16px; margin: 9px 0 0; color: var(--green); font-size: 10px; }
+    .account-list { display: grid; gap: 6px; margin-top: 10px; }
+    .account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #e6ece5; border-radius: 8px; background: #fff; }
+    .account-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .account-name { overflow: hidden; color: #334239; font-size: 10px; font-weight: 650; text-overflow: ellipsis; }
+    .account-role { color: var(--muted); font-size: 9px; white-space: nowrap; }
+    .remove-user { min-height: 28px; padding: 0 8px; border: 1px solid #ecd9d6; border-radius: 7px; background: #fff; color: #9b4539; cursor: pointer; font-size: 9px; }
+    .remove-user:hover { background: #fbf2f0; }
+    .status-text { display: inline-flex; padding: 6px 9px; border-radius: 999px; background: #eef6ed; color: #326744; font-size: 10px; font-weight: 650; white-space: nowrap; }
+    .status-text[data-status="watered"] { background: #edf7f5; color: #286d65; }
+    .status-text[data-status="established"] { background: #f4f7e8; color: #66772d; }
+    .access-hint { margin: 0 0 11px; color: var(--muted); font-size: 11px; }
+    .catalog-tools { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
+    .catalog-filters { display: flex; flex: 1; gap: 9px; }
+    .catalog-search, .catalog-status { min-height: 40px; padding: 0 12px; border: 1px solid #dce5dc; border-radius: 9px; background: #fff; color: var(--ink); font: inherit; font-size: 11px; }
+    .catalog-search { width: min(100%, 330px); }
+    .catalog-search:focus-visible, .catalog-status:focus-visible { outline: 3px solid #b8d9bd; outline-offset: 1px; }
+    .catalog-count { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
+    .empty-state { padding: 24px 15px; color: var(--muted); font-size: 12px; text-align: center; }
+    .activity-list { display: grid; gap: 9px; }
+    .activity-item { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+    .activity-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: var(--green-pale); color: var(--green); font-size: 15px; }
+    .activity-title { color: var(--ink); font-size: 12px; font-weight: 650; }
+    .activity-copy { margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .activity-date { color: var(--muted); font-size: 10px; white-space: nowrap; }
+    .activity-empty { padding: 22px 15px; border: 1px dashed #d5dfd5; border-radius: 12px; color: var(--muted); font-size: 12px; text-align: center; }
+    .table-wrap { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { height: 41px; padding: 0 20px; background: #fafcf9; color: #89938b; font-size: 10px; font-weight: 650; }
+    td { height: 58px; padding: 0 20px; border-top: 1px solid #edf0ec; color: #526057; font-size: 11px; }
+    .tree-name { color: var(--ink); font-weight: 650; }
+    .tree-note { max-width: 340px; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.45; white-space: pre-wrap; }
+    .tree-actions { display: flex; gap: 6px; }
+    .tree-action { min-height: 30px; padding: 0 8px; border: 1px solid #dce5dc; border-radius: 7px; background: #fff; color: #496052; cursor: pointer; font-size: 10px; }
+    .tree-action:hover { background: #f5f8f4; }
+    .tree-action.delete { border-color: #ecd9d6; color: #9b4539; }
+    .tree-action.delete:hover { background: #fbf2f0; }
+    .tree-action:focus-visible { outline: 3px solid #a9d4ad; outline-offset: 2px; }
+    .tree-type { display: inline-grid; width: 28px; height: 28px; place-items: center; margin-right: 9px; border-radius: 9px; background: #edf4ea; font-size: 15px; vertical-align: middle; }
+    .status-select {
+      max-width: 100%;
+      min-height: 30px;
+      padding: 0 8px;
+      border: 1px solid #d8e7d8;
+      border-radius: 999px;
+      background: #eef6ed;
+      color: #326744;
+      font: inherit;
+      font-size: 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .status-select[data-status="planted"] { border-color: #d8e7d8; background: #eef6ed; color: #326744; }
+    .status-select[data-status="watered"] { border-color: #cde4e1; background: #edf7f5; color: #286d65; }
+    .status-select[data-status="established"] { border-color: #dce8b8; background: #f4f7e8; color: #66772d; }
+    .footer { display: flex; justify-content: space-between; gap: 16px; padding: 20px 0 0; color: #929b94; font-size: 10px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+
+    @keyframes rise-in { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 32px, 560px); }
+      .topbar { min-height: auto; }
+      .topbar-inner { width: min(100% - 32px, 560px); flex-wrap: wrap; padding: 12px 0; }
+      .topbar-meta { width: 100%; justify-content: space-between; }
+      .auth-controls { gap: 5px; }
+      .auth-button { min-height: 30px; padding: 0 8px; font-size: 9px; }
+      .role-pill { display: none; }
+      .site-nav { order: 3; width: 100%; justify-content: space-between; gap: 10px; padding-top: 3px; }
+      .site-nav a { font-size: 11px; }
+      .initiative { display: none; }
+      main { padding-top: 28px; }
+      .workspace-heading { align-items: flex-start; flex-direction: column; }
+      .stats-grid { grid-template-columns: 1fr; gap: 10px; }
+      .stat-card { min-height: 124px; padding: 17px 19px; }
+      .stat-value { margin-top: 9px; font-size: 30px; }
+      .impact { grid-template-columns: 1fr; gap: 20px; padding: 25px 23px; }
+      .impact-aside { padding: 17px 0 0; border-top: 1px solid rgba(255,255,255,.18); border-left: 0; }
+      .aside-label { margin-bottom: 9px; }
+      .impact-fact { padding: 9px 0; }
+      #campus-map { height: 360px; }
+      .map-toolbar { align-items: flex-start; flex-direction: column; gap: 9px; }
+      .map-legend { gap: 9px; }
+      .activity-section { margin-top: 29px; }
+      .tree-form { grid-template-columns: 1fr 1fr; }
+      .add-tree-button { grid-column: 1 / -1; }
+      .table-wrap { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+      table, tbody { display: block; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); }
+      tr { display: grid; grid-template-columns: 1fr auto; gap: 9px 12px; margin-bottom: 9px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); box-shadow: var(--shadow); }
+      td { display: block; height: auto; padding: 0; border: 0; font-size: 11px; }
+      td:first-child { grid-column: 1 / -1; }
+      td:nth-child(2)::before { content: "Кем посажено: "; color: #929b94; }
+      td:nth-child(3)::before { content: "Дата: "; color: #929b94; }
+      td:nth-child(4) { grid-column: 1; align-self: center; }
+      td:nth-child(4)::before { content: "Статус: "; color: #929b94; }
+      td:nth-child(5)::before { content: "Следующий полив: "; color: #929b94; }
+      td:nth-child(6) { grid-column: 1 / -1; }
+      .footer { flex-direction: column; gap: 6px; }
+    }
+    @media (max-width: 420px) {
+      .shell { width: calc(100% - 24px); }
+      .brand-caption { max-width: 185px; font-size: 10px; }
+      .live-label { padding: 7px 9px; font-size: 10px; }
+      .page-intro { align-items: flex-start; flex-direction: column; }
+      h1 { font-size: 25px; }
+      .co2-value { font-size: 43px; }
+      .section-heading { align-items: flex-start; }
+      .tree-form { grid-template-columns: 1fr; padding: 14px; }
+      .add-tree-button { grid-column: auto; }
+      .catalog-tools { align-items: stretch; flex-direction: column; }
+      .catalog-filters { flex-direction: column; }
+      .catalog-search { width: 100%; }
+      .user-form { grid-template-columns: 1fr; }
+      .user-form .add-tree-button { grid-column: auto; }
+      .admin-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- Шапка проекта и контекст экологической инициативы -->
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand-link" href="#overview" aria-label="My Tree CCU — обзор трекера">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">🌳</span>
+            <div>
+              <p class="brand-name">My Tree CCU</p>
+              <p class="brand-caption">Трекер посадок и ухода</p>
+            </div>
+          </div>
+        </a>
+        <nav class="site-nav" aria-label="Основная навигация">
+          <a href="#overview">Обзор</a>
+          <a href="#campus-map-section">Карта</a>
+          <a href="#grove">Каталог</a>
+          <a href="#care-log">Журнал</a>
+          <a href="#add-tree">Добавить</a>
+        </nav>
+        <div class="topbar-meta">
+          <div class="initiative" aria-label="Чистый Казахстан">
+            <span class="initiative-mark" aria-hidden="true">ТК</span>
+            <span>Таза Казахстан</span>
+          </div>
+          <div class="auth-controls">
+            <span class="live-label" id="server-status" data-connected="false" aria-live="polite"><span class="live-dot" aria-hidden="true"></span>Подключение к серверу</span>
+            <span class="role-pill" id="user-badge" hidden></span>
+            <button class="auth-button" id="auth-open" type="button">Войти</button>
+            <button class="auth-button" id="logout-button" type="button" hidden>Выйти</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <dialog class="auth-dialog" id="auth-dialog" aria-labelledby="auth-title">
+      <div class="dialog-heading">
+        <h2 id="auth-title">Вход в трекер</h2>
+        <button class="dialog-close" id="auth-close" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <p class="dialog-copy" id="auth-copy">Войдите, чтобы управлять посадками.</p>
+      <form class="auth-form" id="setup-form" hidden>
+        <label class="form-field"><span>Логин администратора</span><input name="username" type="text" minlength="3" maxlength="32" pattern="[A-Za-z0-9._\-]+" autocomplete="username" required></label>
+        <label class="form-field"><span>Пароль (от 10 символов)</span><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+        <label class="form-field"><span>Повторите пароль</span><input name="confirmPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+        <button class="welcome-button" type="submit">Создать администратора</button>
+      </form>
+      <form class="auth-form" id="login-form">
+        <label class="form-field"><span>Логин</span><input name="username" type="text" autocomplete="username" required></label>
+        <label class="form-field"><span>Пароль</span><input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="welcome-button" type="submit">Войти</button>
+      </form>
+      <p class="auth-feedback" id="auth-feedback" aria-live="polite"></p>
+    </dialog>
+
+    <main>
+      <section class="workspace-heading" id="overview" aria-labelledby="page-title">
+        <div><p class="eyebrow">УЧЁТ ПОСАДОК · CCU</p><h1 id="page-title">Трекер озеленения</h1><p class="intro-copy">Деревья кампуса, статусы ухода и последние изменения в одном месте.</p></div>
+        <a class="welcome-button heading-action" href="#add-tree">＋ Новая посадка</a>
+      </section>
+
+      <section class="section-block" aria-labelledby="stats-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="stats-title">Наш вклад в кампус</h2>
+            <p class="section-note">Сводка по деревьям и уходу</p>
+          </div>
+          <span class="period">Каталог · 2026</span>
+        </div>
+        <p class="demo-notice"><span aria-hidden="true">ⓘ</span>Сводка рассчитана по каталогу. Поглощение CO₂ — отдельная оценка, не подтверждённые измерения.</p>
+        <div class="stats-grid" aria-label="Показатели каталога посадок">
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Всего посажено деревьев</span><span class="stat-symbol" aria-hidden="true">🌱</span></div>
+            <div class="stat-value" id="trees-count">—</div>
+            <div class="stat-foot"><strong>В кампусе CCU</strong> за этот сезон</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Студентов / групп-участников</span><span class="stat-symbol" aria-hidden="true">♧</span></div>
+            <div class="stat-value" id="participants-count">—</div>
+            <div class="stat-foot">Уникальные посадившие в списке</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-top"><span class="stat-label">Деревьев на контроле</span><span class="stat-symbol" aria-hidden="true">✓</span></div>
+            <div class="stat-value" id="care-count">—</div>
+            <div class="stat-foot">Полив и регулярный уход</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="impact section-block" id="impact" aria-labelledby="impact-title">
+        <div class="impact-main">
+          <p class="impact-kicker">Наш измеримый вклад</p>
+          <h2 class="impact-title" id="impact-title">Оценка поглощения CO₂ деревьями CCU</h2>
+          <div class="co2-line" aria-live="polite"><span class="co2-value" id="co2-count">0</span><span class="co2-unit">кг CO₂</span></div>
+          <div class="progress-meta"><span>Оценка к условной цели</span><span><strong id="goal-progress">0</strong> из 2 000 кг</span></div>
+          <div class="progress-track" role="progressbar" aria-label="Прогресс к демонстрационной цели по поглощению CO2" aria-valuemin="0" aria-valuemax="2000" aria-valuenow="0"><div class="progress-fill" id="progress-fill"></div></div>
+        </div>
+        <aside class="impact-aside" aria-label="Дополнительный экологический эффект">
+          <p class="aside-label">Эффект кампании</p>
+          <div class="impact-fact"><span>Прижилось</span><strong id="survival-count">—%</strong></div>
+          <div class="impact-fact"><span>Расчётная норма CO₂</span><strong id="co2-rate">22 кг / год</strong></div>
+          <p class="impact-foot">Оценка, не подтверждённые измерения: число посадок × 22 кг на дерево в год. Порода и возраст не учитываются.</p>
+        </aside>
+      </section>
+
+      <section class="section-block" id="campus-map-section" aria-labelledby="campus-map-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="campus-map-title">Карта кампуса ККУ</h2>
+            <p class="section-note">Колледж Каспийского Университета · точки для обсуждения озеленения</p>
+          </div>
+          <a class="period" href="https://ccu.edu.kz/" target="_blank" rel="noreferrer">Сайт ККУ ↗</a>
+        </div>
+        <div class="campus-map-panel">
+          <div class="map-toolbar">
+            <span class="map-location"><strong>ККУ</strong> · Алматы, проспект Сейфуллина, 521</span>
+            <div class="map-legend" aria-label="Обозначения карты">
+              <span class="map-legend-item"><span class="map-legend-dot" aria-hidden="true"></span>Кампус ККУ</span>
+              <span class="map-legend-item"><span class="map-legend-dot proposal" aria-hidden="true"></span>Предложенная точка</span>
+            </div>
+          </div>
+          <div id="campus-map" role="application" aria-label="Интерактивная карта кампуса Колледжа Каспийского Университета"></div>
+          <p class="map-note"><strong>Важно:</strong> оранжевые метки — демонстрационные предложения для осмотра, а не подтверждённые места посадки. Перед посадкой проверьте фактическую территорию, коммуникации и получите согласование администрации.</p>
+        </div>
+      </section>
+
+      <section class="activity-section section-block" id="grove" aria-labelledby="activity-title">
+        <div class="section-heading">
+          <div><h2 id="activity-title">Деревья нашего кампуса</h2><p class="section-note">Каталог посадок, статусы и план ухода</p></div>
+        </div>
+        <div class="catalog-tools">
+          <div class="catalog-filters">
+            <label class="sr-only" for="tree-search">Поиск по деревьям и посадившим</label>
+            <input class="catalog-search" id="tree-search" type="search" placeholder="Поиск по имени дерева или группе">
+            <label class="sr-only" for="status-filter">Фильтр по статусу</label>
+            <select class="catalog-status" id="status-filter">
+              <option value="all">Все статусы</option>
+              <option value="planted">Посажено</option>
+              <option value="watered">Полито</option>
+              <option value="established">Прижилось</option>
+            </select>
+          </div>
+          <span class="catalog-count" id="catalog-count" aria-live="polite"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Дерево и заметки</th><th scope="col">Кем посажено</th><th scope="col">Дата</th><th scope="col">Статус ухода</th><th scope="col">Следующий полив</th><th scope="col">Действия</th></tr></thead>
+            <tbody id="trees-table-body"></tbody>
+          </table>
+          <p class="empty-state" id="empty-state" hidden>По вашему запросу деревьев не найдено.</p>
+        </div>
+      </section>
+
+      <section class="section-block" id="add-tree" aria-labelledby="add-tree-title">
+        <div class="section-heading"><div><h2 id="add-tree-title">Добавить посадку</h2><p class="section-note">Заполните карточку дерева и отметьте его текущий статус.</p></div></div>
+        <p class="access-hint" id="access-hint" hidden></p>
+        <section class="admin-panel" id="admin-panel" aria-labelledby="admin-panel-title" hidden>
+          <div class="admin-heading"><h3 id="admin-panel-title">Управление доступом</h3><p>Пароли передаются человеку отдельно и сохраняются только в виде хеша.</p></div>
+          <form class="tree-form user-form" id="create-user-form">
+            <label class="form-field"><span>Логин</span><input name="username" type="text" minlength="3" maxlength="32" pattern="[A-Za-z0-9._\-]+" autocomplete="off" required></label>
+            <label class="form-field"><span>Начальный пароль</span><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+            <label class="form-field"><span>Права</span><select name="role" required><option value="editor">Редактор</option><option value="viewer">Только просмотр</option></select></label>
+            <button class="add-tree-button" type="submit">Создать аккаунт</button>
+          </form>
+          <p class="user-feedback" id="user-feedback" aria-live="polite"></p>
+          <div class="account-list" id="account-list"></div>
+        </section>
+        <form class="tree-form" id="tree-form" hidden>
+          <label class="form-field"><span>Имя дерева</span><input id="tree-name" name="name" type="text" maxlength="48" placeholder="Дуб «CCU-2»" required></label>
+          <label class="form-field"><span>Кем посажено</span><input id="tree-planted-by" name="plantedBy" type="text" maxlength="32" placeholder="Э-21 или имя студента" required></label>
+          <label class="form-field"><span>Дата посадки</span><input id="tree-date" name="date" type="date" required></label>
+          <label class="form-field"><span>Статус</span><select id="tree-status" name="status" required><option value="planted">Посажено</option><option value="watered">Полито</option><option value="established">Прижилось</option></select></label>
+          <label class="form-field"><span>Заметка об уходе</span><textarea id="tree-care-notes" name="careNotes" maxlength="1000" rows="2" placeholder="Например, мульчировать приствольный круг"></textarea></label>
+          <label class="form-field"><span>Следующий полив</span><input id="tree-next-watering" name="nextWateringOn" type="date"></label>
+          <button class="add-tree-button" type="submit"><span aria-hidden="true">＋</span>Добавить дерево</button>
+          <button class="tree-action" id="cancel-tree-edit" type="button" hidden>Отмена</button>
+        </form>
+        <p class="form-feedback" id="form-feedback" aria-live="polite">Записи отправляются на сервер проекта.</p>
+      </section>
+
+      <section class="section-block" id="care-log" aria-labelledby="care-title">
+        <div class="section-heading"><div><h2 id="care-title">Журнал изменений</h2><p class="section-note">История добавления посадок и обновления статусов ухода</p></div></div>
+        <div class="activity-list" id="activity-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>My Tree CCU · Трекер озеленения колледжа</span>
+      <span>Посадки и журнал сохраняются в базе проекта</span>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    // Норма CO2 и целевое значение являются условными оценочными параметрами.
+    const co2Target = 2000;
+    const annualCo2PerTree = 22;
+    const statusLabels = {
+      planted: 'Посажено',
+      watered: 'Полито',
+      established: 'Прижилось'
+    };
+    const campusCoordinates = [43.256802, 76.9320544];
+    const proposedPlantingSites = [
+      { id: 'A', name: 'Предлагаемая зона A', coordinates: [43.25702, 76.93228] },
+      { id: 'B', name: 'Предлагаемая зона B', coordinates: [43.25659, 76.93230] },
+      { id: 'C', name: 'Предлагаемая зона C', coordinates: [43.25676, 76.93176] }
+    ];
+    let animationFrame;
+    let trees = [];
+    let activity = [];
+    let currentUser = null;
+    let setupRequired = false;
+    let editingTreeId = null;
+
+    const formatNumber = (value) => new Intl.NumberFormat('ru-RU').format(value);
+
+    function createMapPopup(titleText, copyText) {
+      const content = document.createElement('div');
+      const title = document.createElement('p');
+      const copy = document.createElement('p');
+      title.className = 'map-popup-title';
+      title.textContent = titleText;
+      copy.className = 'map-popup-copy';
+      copy.textContent = copyText;
+      content.append(title, copy);
+      return content;
+    }
+
+    function initializeCampusMap() {
+      const mapElement = document.getElementById('campus-map');
+      if (!window.L) {
+        mapElement.textContent = 'Не удалось загрузить карту. Проверьте подключение к интернету и обновите страницу.';
+        mapElement.setAttribute('role', 'status');
+        return;
+      }
+
+      const map = L.map(mapElement, { scrollWheelZoom: false }).setView(campusCoordinates, 18);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>'
+      }).addTo(map);
+
+      const campusIcon = L.divIcon({
+        className: '',
+        html: '<span class="campus-pin"><span>К</span></span>',
+        iconSize: [34, 34],
+        iconAnchor: [17, 31],
+        popupAnchor: [0, -29]
+      });
+      L.marker(campusCoordinates, { icon: campusIcon, title: 'Колледж Каспийского Университета' })
+        .addTo(map)
+        .bindPopup(createMapPopup('Колледж Каспийского Университета', 'Алматы, проспект Сейфуллина, 521. Точка кампуса указана по адресу.'));
+
+      proposedPlantingSites.forEach((site) => {
+        const proposalIcon = L.divIcon({
+          className: '',
+          html: `<span class="proposal-pin">${site.id}</span>`,
+          iconSize: [27, 27],
+          iconAnchor: [13, 13],
+          popupAnchor: [0, -11]
+        });
+        L.marker(site.coordinates, { icon: proposalIcon, title: site.name })
+          .addTo(map)
+          .bindPopup(createMapPopup(site.name, 'Условная точка для осмотра. Проверьте фактическую территорию и согласуйте место с администрацией ККУ.'));
+      });
+
+      requestAnimationFrame(() => map.invalidateSize());
+    }
+
+    async function apiRequest(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+          ...options.headers
+        }
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Не удалось выполнить запрос к серверу.');
+      return result;
+    }
+
+    function setServerStatus(connected) {
+      const status = document.getElementById('server-status');
+      status.dataset.connected = String(connected);
+      status.lastChild.textContent = connected ? 'Сервер подключён' : 'Сервер недоступен';
+    }
+
+    async function loadTracker() {
+      try {
+        const [auth, store] = await Promise.all([
+          apiRequest('/api/auth/me'),
+          apiRequest('/api/trees')
+        ]);
+        currentUser = auth.user;
+        setupRequired = auth.setupRequired;
+        trees = store.trees;
+        activity = store.activity;
+        setServerStatus(true);
+        renderDashboard();
+        if (currentUser?.role === 'admin') await loadAdminAccounts();
+        if (setupRequired && !document.getElementById('auth-dialog').open) {
+          openAuthDialog();
+        }
+      } catch (error) {
+        trees = [];
+        activity = [];
+        setServerStatus(false);
+        renderDashboard();
+        document.getElementById('form-feedback').textContent = 'Не удалось связаться с сервером. Запустите проект командой npm start.';
+      }
+    }
+
+    function openAuthDialog() {
+      const isSetup = setupRequired;
+      const dialog = document.getElementById('auth-dialog');
+      document.getElementById('auth-title').textContent = isSetup ? 'Первичная настройка' : 'Вход в трекер';
+      document.getElementById('auth-copy').textContent = isSetup
+        ? 'Создайте аккаунт администратора. После этого только администратор сможет выдавать доступ.'
+        : 'Войдите по логину и паролю, выданным администратором.';
+      document.getElementById('setup-form').hidden = !isSetup;
+      document.getElementById('login-form').hidden = isSetup;
+      document.getElementById('auth-feedback').textContent = '';
+      if (!dialog.open) dialog.showModal();
+    }
+
+    function applyAccess() {
+      const canEdit = ['admin', 'editor'].includes(currentUser?.role);
+      const authOpen = document.getElementById('auth-open');
+      const userBadge = document.getElementById('user-badge');
+      const logoutButton = document.getElementById('logout-button');
+      const roleNames = { admin: 'Администратор', editor: 'Редактор', viewer: 'Просмотр' };
+
+      authOpen.hidden = Boolean(currentUser);
+      authOpen.textContent = setupRequired ? 'Создать администратора' : 'Войти';
+      userBadge.hidden = !currentUser;
+      userBadge.textContent = currentUser ? `${currentUser.username} · ${roleNames[currentUser.role]}` : '';
+      logoutButton.hidden = !currentUser;
+      document.getElementById('tree-form').hidden = !canEdit;
+      document.getElementById('admin-panel').hidden = currentUser?.role !== 'admin';
+
+      const accessHint = document.getElementById('access-hint');
+      accessHint.hidden = canEdit;
+      accessHint.textContent = currentUser
+        ? 'У этой учётной записи доступ только для просмотра. Для редактирования обратитесь к администратору.'
+        : 'Каталог открыт для просмотра. Чтобы добавлять деревья или менять статусы, войдите как редактор.';
+    }
+
+    async function loadAdminAccounts() {
+      try {
+        const result = await apiRequest('/api/users');
+        renderAdminAccounts(result.users);
+      } catch (error) {
+        document.getElementById('user-feedback').textContent = error.message;
+      }
+    }
+
+    function renderAdminAccounts(users) {
+      const accountList = document.getElementById('account-list');
+      const roleNames = { admin: 'Администратор', editor: 'Редактор', viewer: 'Только просмотр' };
+      accountList.replaceChildren();
+
+      users.forEach((user) => {
+        const row = document.createElement('div');
+        const meta = document.createElement('div');
+        const username = document.createElement('span');
+        const role = document.createElement('span');
+        row.className = 'account-row';
+        meta.className = 'account-meta';
+        username.className = 'account-name';
+        username.textContent = user.username;
+        role.className = 'account-role';
+        role.textContent = roleNames[user.role] || user.role;
+        meta.append(username, role);
+        row.append(meta);
+
+        if (user.id !== currentUser?.id) {
+          const removeButton = document.createElement('button');
+          removeButton.className = 'remove-user';
+          removeButton.type = 'button';
+          removeButton.dataset.userId = user.id;
+          removeButton.textContent = 'Отозвать доступ';
+          row.append(removeButton);
+        }
+
+        accountList.append(row);
+      });
+    }
+
+    // Сглаживание числового перехода без сторонних библиотек.
+    function animateCounter(element, from, to, duration = 1100) {
+      cancelAnimationFrame(animationFrame);
+      if (document.hidden) {
+        element.textContent = formatNumber(to);
+        return;
+      }
+
+      const start = performance.now();
+
+      function frame(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = Math.round(from + (to - from) * eased);
+        element.textContent = formatNumber(current);
+
+        if (progress < 1) animationFrame = requestAnimationFrame(frame);
+      }
+
+      animationFrame = requestAnimationFrame(frame);
+    }
+
+    function renderStats() {
+      const co2 = trees.length * annualCo2PerTree;
+      const participants = new Set(trees.map((tree) => tree.plantedBy.trim().toLocaleLowerCase('ru-RU')));
+      const care = trees.filter((tree) => tree.status !== 'established').length;
+      const established = trees.filter((tree) => tree.status === 'established').length;
+      const survival = trees.length ? Math.round((established / trees.length) * 100) : 0;
+      const co2Element = document.getElementById('co2-count');
+      const previousCo2 = Number(co2Element.dataset.value || 0);
+      const progress = Math.min((co2 / co2Target) * 100, 100);
+
+      document.getElementById('trees-count').textContent = formatNumber(trees.length);
+      document.getElementById('participants-count').textContent = formatNumber(participants.size);
+      document.getElementById('care-count').textContent = formatNumber(care);
+      document.getElementById('survival-count').textContent = `${survival}%`;
+      document.getElementById('goal-progress').textContent = formatNumber(co2);
+      co2Element.dataset.value = String(co2);
+      animateCounter(co2Element, previousCo2, co2);
+
+      const progressBar = document.getElementById('progress-fill');
+      progressBar.style.width = `${progress}%`;
+      progressBar.parentElement.setAttribute('aria-valuenow', String(co2));
+      progressBar.parentElement.setAttribute('aria-valuetext', `${formatNumber(co2)} из ${formatNumber(co2Target)} килограммов`);
+    }
+
+    function renderTrees() {
+      const tableBody = document.getElementById('trees-table-body');
+      const query = document.getElementById('tree-search').value.trim().toLocaleLowerCase('ru-RU');
+      const selectedStatus = document.getElementById('status-filter').value;
+      const matchingTrees = trees.filter((tree) => {
+        const matchesQuery = `${tree.name} ${tree.plantedBy}`.toLocaleLowerCase('ru-RU').includes(query);
+        const matchesStatus = selectedStatus === 'all' || tree.status === selectedStatus;
+        return matchesQuery && matchesStatus;
+      });
+      const sortedTrees = [...matchingTrees].sort((first, second) => second.date.localeCompare(first.date));
+      tableBody.replaceChildren();
+      document.getElementById('catalog-count').textContent = `Показано ${sortedTrees.length} из ${trees.length}`;
+      const emptyState = document.getElementById('empty-state');
+      emptyState.hidden = sortedTrees.length > 0;
+      emptyState.textContent = trees.length === 0
+        ? 'Каталог пока пуст. Добавьте первую посадку, чтобы начать учёт.'
+        : 'По вашему запросу деревьев не найдено.';
+
+      sortedTrees.forEach((tree) => {
+        const row = document.createElement('tr');
+        const nameCell = document.createElement('td');
+        const icon = document.createElement('span');
+        const name = document.createElement('span');
+        const nameDetails = document.createElement('div');
+        icon.className = 'tree-type';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '🌳';
+        name.className = 'tree-name';
+        name.textContent = tree.name;
+        nameDetails.append(name);
+        if (tree.careNotes) {
+          const note = document.createElement('div');
+          note.className = 'tree-note';
+          note.textContent = tree.careNotes;
+          nameDetails.append(note);
+        }
+        nameCell.append(icon, nameDetails);
+
+        const groupCell = document.createElement('td');
+        groupCell.textContent = tree.plantedBy;
+        const dateCell = document.createElement('td');
+        dateCell.textContent = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${tree.date}T12:00:00`));
+        const statusCell = document.createElement('td');
+        if (['admin', 'editor'].includes(currentUser?.role)) {
+          const status = document.createElement('select');
+          status.className = 'status-select';
+          status.dataset.treeId = tree.id;
+          status.dataset.status = tree.status;
+          status.setAttribute('aria-label', `Статус: ${tree.name}`);
+
+          Object.entries(statusLabels).forEach(([value, label]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            option.selected = value === tree.status;
+            status.append(option);
+          });
+
+          statusCell.append(status);
+        } else {
+          const status = document.createElement('span');
+          status.className = 'status-text';
+          status.dataset.status = tree.status;
+          status.textContent = statusLabels[tree.status];
+          statusCell.append(status);
+        }
+        const wateringCell = document.createElement('td');
+        wateringCell.textContent = tree.nextWateringOn
+          ? new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${tree.nextWateringOn}T12:00:00`))
+          : 'Не указана';
+        const actionsCell = document.createElement('td');
+        if (['admin', 'editor'].includes(currentUser?.role)) {
+          const actions = document.createElement('div');
+          const editButton = document.createElement('button');
+          const deleteButton = document.createElement('button');
+          actions.className = 'tree-actions';
+          editButton.className = 'tree-action';
+          editButton.type = 'button';
+          editButton.dataset.action = 'edit';
+          editButton.dataset.treeId = tree.id;
+          editButton.textContent = 'Изменить';
+          deleteButton.className = 'tree-action delete';
+          deleteButton.type = 'button';
+          deleteButton.dataset.action = 'delete';
+          deleteButton.dataset.treeId = tree.id;
+          deleteButton.textContent = 'Удалить';
+          actions.append(editButton, deleteButton);
+          actionsCell.append(actions);
+        }
+        row.append(nameCell, groupCell, dateCell, statusCell, wateringCell, actionsCell);
+        tableBody.append(row);
+      });
+    }
+
+    function renderActivity() {
+      const activityList = document.getElementById('activity-list');
+      activityList.replaceChildren();
+
+      if (activity.length === 0) {
+        const emptyMessage = document.createElement('p');
+        emptyMessage.className = 'activity-empty';
+        emptyMessage.textContent = 'История пока пуста. Добавьте посадку или измените статус дерева, чтобы начать учёт.';
+        activityList.append(emptyMessage);
+        return;
+      }
+
+      activity.slice(0, 8).forEach((entry) => {
+        const item = document.createElement('article');
+        const mark = document.createElement('span');
+        const details = document.createElement('div');
+        const title = document.createElement('div');
+        const copy = document.createElement('div');
+        const date = document.createElement('time');
+        item.className = 'activity-item';
+        mark.className = 'activity-mark';
+        mark.setAttribute('aria-hidden', 'true');
+        mark.textContent = entry.action.startsWith('Статус') ? '↻' : '+';
+        title.className = 'activity-title';
+        title.textContent = entry.action;
+        copy.className = 'activity-copy';
+        copy.textContent = `${entry.treeName}${entry.plantedBy ? ` · ${entry.plantedBy}` : ''}`;
+        date.className = 'activity-date';
+        date.dateTime = entry.timestamp;
+        date.textContent = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(entry.timestamp));
+        details.append(title, copy);
+        item.append(mark, details, date);
+        activityList.append(item);
+      });
+    }
+
+    function renderDashboard() {
+      renderStats();
+      renderTrees();
+      renderActivity();
+      applyAccess();
+    }
+
+    const form = document.getElementById('tree-form');
+    const dateInput = document.getElementById('tree-date');
+    const today = new Date();
+    const localToday = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    dateInput.max = localToday;
+    dateInput.value = localToday;
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      const tree = {
+        name: String(formData.get('name')).trim(),
+        plantedBy: String(formData.get('plantedBy')).trim(),
+        date: String(formData.get('date')),
+        status: String(formData.get('status')),
+        careNotes: String(formData.get('careNotes')).trim(),
+        nextWateringOn: String(formData.get('nextWateringOn'))
+      };
+
+      if (!tree.name || !tree.plantedBy || !tree.date || !statusLabels[tree.status]) {
+        form.reportValidity();
+        return;
+      }
+
+      const submitButton = form.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      try {
+        const result = editingTreeId
+          ? await apiRequest(`/api/trees/${encodeURIComponent(editingTreeId)}`, { method: 'PATCH', body: JSON.stringify(tree) })
+          : await apiRequest('/api/trees', { method: 'POST', body: JSON.stringify(tree) });
+        if (editingTreeId) {
+          Object.assign(trees.find((item) => item.id === editingTreeId), result.tree);
+        } else {
+          trees.unshift(result.tree);
+        }
+        activity.unshift(result.activity);
+        document.getElementById('tree-search').value = '';
+        document.getElementById('status-filter').value = 'all';
+        renderDashboard();
+        form.reset();
+        dateInput.value = localToday;
+        editingTreeId = null;
+        form.querySelector('button[type="submit"]').innerHTML = '<span aria-hidden="true">＋</span>Добавить дерево';
+        document.getElementById('cancel-tree-edit').hidden = true;
+        document.getElementById('add-tree-title').textContent = 'Добавить посадку';
+        document.getElementById('form-feedback').textContent = result.activity.action === 'Обновлена информация о посадке'
+          ? 'Посадка обновлена и сохранена.'
+          : 'Посадка добавлена и сохранена.';
+      } catch (error) {
+        document.getElementById('form-feedback').textContent = error.message;
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    document.getElementById('cancel-tree-edit').addEventListener('click', () => {
+      editingTreeId = null;
+      form.reset();
+      dateInput.value = localToday;
+      form.querySelector('button[type="submit"]').innerHTML = '<span aria-hidden="true">＋</span>Добавить дерево';
+      document.getElementById('cancel-tree-edit').hidden = true;
+      document.getElementById('add-tree-title').textContent = 'Добавить посадку';
+    });
+
+    document.getElementById('trees-table-body').addEventListener('click', async (event) => {
+      const actionButton = event.target.closest('.tree-action[data-action]');
+      if (!actionButton) return;
+      const tree = trees.find((item) => item.id === actionButton.dataset.treeId);
+      if (!tree) return;
+      if (actionButton.dataset.action === 'edit') {
+        editingTreeId = tree.id;
+        form.elements.name.value = tree.name;
+        form.elements.plantedBy.value = tree.plantedBy;
+        form.elements.date.value = tree.date;
+        form.elements.status.value = tree.status;
+        form.elements.careNotes.value = tree.careNotes || '';
+        form.elements.nextWateringOn.value = tree.nextWateringOn || '';
+        form.querySelector('button[type="submit"]').textContent = 'Сохранить';
+        document.getElementById('cancel-tree-edit').hidden = false;
+        document.getElementById('add-tree-title').textContent = 'Редактировать посадку';
+        document.getElementById('add-tree').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        form.elements.name.focus({ preventScroll: true });
+        return;
+      }
+      if (!window.confirm(`Удалить посадку «${tree.name}»? Это действие нельзя отменить.`)) return;
+      actionButton.disabled = true;
+      try {
+        const result = await apiRequest(`/api/trees/${encodeURIComponent(tree.id)}`, { method: 'DELETE' });
+        trees = trees.filter((item) => item.id !== tree.id);
+        activity.unshift(result.activity);
+        renderDashboard();
+        document.getElementById('form-feedback').textContent = 'Посадка удалена.';
+      } catch (error) {
+        actionButton.disabled = false;
+        document.getElementById('form-feedback').textContent = error.message;
+      }
+    });
+
+    document.getElementById('trees-table-body').addEventListener('change', async (event) => {
+      const statusSelect = event.target.closest('.status-select');
+      if (!statusSelect) return;
+
+      const tree = trees.find((item) => item.id === statusSelect.dataset.treeId);
+      if (!tree) return;
+
+      const nextStatus = statusSelect.value;
+      statusSelect.disabled = true;
+      try {
+        const result = await apiRequest(`/api/trees/${encodeURIComponent(tree.id)}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: nextStatus })
+        });
+        Object.assign(tree, result.tree);
+        if (result.activity) activity.unshift(result.activity);
+        renderDashboard();
+        document.getElementById('form-feedback').textContent = 'Статус обновлён и сохранён на сервере.';
+      } catch (error) {
+        renderDashboard();
+        document.getElementById('form-feedback').textContent = error.message;
+      }
+    });
+
+    document.getElementById('tree-search').addEventListener('input', renderTrees);
+    document.getElementById('status-filter').addEventListener('change', renderTrees);
+
+    const authDialog = document.getElementById('auth-dialog');
+    const authFeedback = document.getElementById('auth-feedback');
+    const setupForm = document.getElementById('setup-form');
+    const loginForm = document.getElementById('login-form');
+
+    document.getElementById('auth-open').addEventListener('click', openAuthDialog);
+    document.getElementById('auth-close').addEventListener('click', () => authDialog.close());
+    authDialog.addEventListener('click', (event) => {
+      if (event.target === authDialog) authDialog.close();
+    });
+
+    setupForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(setupForm);
+      const password = String(formData.get('password'));
+      if (password !== String(formData.get('confirmPassword'))) {
+        authFeedback.textContent = 'Пароли не совпадают.';
+        return;
+      }
+
+      const submitButton = setupForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      authFeedback.textContent = '';
+      try {
+        const result = await apiRequest('/api/auth/setup', {
+          method: 'POST',
+          body: JSON.stringify({ username: formData.get('username'), password })
+        });
+        currentUser = result.user;
+        setupRequired = false;
+        authDialog.close();
+        setupForm.reset();
+        await loadTracker();
+      } catch (error) {
+        authFeedback.textContent = error.message;
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(loginForm);
+      const submitButton = loginForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      authFeedback.textContent = '';
+      try {
+        const result = await apiRequest('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username: formData.get('username'), password: formData.get('password') })
+        });
+        currentUser = result.user;
+        setupRequired = false;
+        authDialog.close();
+        loginForm.reset();
+        await loadTracker();
+      } catch (error) {
+        authFeedback.textContent = error.message;
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    document.getElementById('logout-button').addEventListener('click', async () => {
+      try {
+        await apiRequest('/api/auth/logout', { method: 'POST' });
+        currentUser = null;
+        await loadTracker();
+      } catch (error) {
+        document.getElementById('form-feedback').textContent = error.message;
+      }
+    });
+
+    document.getElementById('create-user-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const userForm = event.currentTarget;
+      const formData = new FormData(userForm);
+      const submitButton = userForm.querySelector('button[type="submit"]');
+      const feedback = document.getElementById('user-feedback');
+      submitButton.disabled = true;
+      feedback.textContent = '';
+      try {
+        await apiRequest('/api/users', {
+          method: 'POST',
+          body: JSON.stringify({
+            username: formData.get('username'),
+            password: formData.get('password'),
+            role: formData.get('role')
+          })
+        });
+        userForm.reset();
+        feedback.textContent = 'Аккаунт создан. Передайте логин и начальный пароль участнику отдельно.';
+        await loadAdminAccounts();
+      } catch (error) {
+        feedback.textContent = error.message;
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    document.getElementById('account-list').addEventListener('click', async (event) => {
+      const removeButton = event.target.closest('.remove-user');
+      if (!removeButton || !window.confirm('Отозвать доступ этому аккаунту? Его активные сессии завершатся.')) return;
+
+      removeButton.disabled = true;
+      try {
+        await apiRequest(`/api/users/${encodeURIComponent(removeButton.dataset.userId)}`, { method: 'DELETE' });
+        document.getElementById('user-feedback').textContent = 'Доступ отозван.';
+        await loadAdminAccounts();
+      } catch (error) {
+        document.getElementById('user-feedback').textContent = error.message;
+      }
+    });
+
+    initializeCampusMap();
+    loadTracker();
+  </script>
+</body>
+</html>
